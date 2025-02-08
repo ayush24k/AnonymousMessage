@@ -2,12 +2,16 @@
 import { Button } from "@/components/ui/button"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
+import { useToast } from "@/hooks/use-toast"
 import dbConnect from "@/lib/dbConnect"
+import { ApiResponse } from "@/types/ApiResponse"
 import { GetSignInSchema, signInSchema } from "@/ZodValidation/signInSchema"
 import { zodResolver } from "@hookform/resolvers/zod"
-import axios from "axios"
+import axios, { AxiosError } from "axios"
 import { Loader2 } from "lucide-react"
+import { signIn } from "next-auth/react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { useForm } from "react-hook-form"
 
@@ -15,6 +19,8 @@ import { useForm } from "react-hook-form"
 export default function SignInPage() {
 
     const [isSubmitting, setIsSubmitting] = useState(false)
+    const { toast } = useToast()
+    const router = useRouter()
 
     const form = useForm<GetSignInSchema>({
         resolver: zodResolver(signInSchema),
@@ -28,9 +34,34 @@ export default function SignInPage() {
     const onSubmit = async (data: GetSignInSchema) => {
         setIsSubmitting(true)
         try {
-            const response = await axios.post('api/')
+            const response = await signIn('credentials', {
+                redirect: false,
+                identifier: data.identifier,
+                password: data.password
+            })
+
+            if (response?.error) {
+                toast({
+                    title: "Sign In Failed",
+                    description: "Incorrect user or password",
+                    variant: "destructive"
+                })
+            }
+
+            setIsSubmitting(false)
+
+            if (response?.url) {
+                router.replace('/dashboard')
+            }
         } catch (error) {
-            
+            console.error("Error sigin you in", error)
+
+            toast({
+                title: "Sign In Failed",
+                description: "Incorrect user or password",
+                variant: "destructive"
+            })
+            setIsSubmitting(false)
         }
     }
     return (
@@ -47,9 +78,9 @@ export default function SignInPage() {
                             control={form.control}
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Username or Email</FormLabel>
+                                    <FormLabel>Username/Email</FormLabel>
                                     <FormControl>
-                                        <Input placeholder="username or email"
+                                        <Input placeholder="username/email"
                                             {...field}
                                         />
                                     </FormControl>
@@ -78,7 +109,7 @@ export default function SignInPage() {
                                     <>
                                         <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Please wait
                                     </>
-                                ) : ('Signup')
+                                ) : ('Sign in')
                             }
                         </Button>
                     </form>
